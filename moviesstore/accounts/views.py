@@ -6,6 +6,10 @@ from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required 
 from django.contrib.auth.models import User
 
+
+from django.contrib.auth.hashers import make_password
+from django.contrib import messages
+
 @login_required
 def logout(request):
     auth_logout(request)
@@ -53,3 +57,30 @@ def orders(request):
     template_data['orders'] = request.user.order_set.all()
     return render(request, 'accounts/orders.html',
         {'template_data': template_data})
+
+def password_reset_request(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        new_password = request.POST.get("new_password")
+        confirm_password = request.POST.get("confirm_password")
+
+        if not username or not new_password or not confirm_password:
+            messages.error(request, "All fields are required.")
+            return redirect("password_reset")
+
+        if new_password != confirm_password:
+            messages.error(request, "Passwords do not match.")
+            return redirect("password_reset")
+
+        try:
+            user = User.objects.get(username=username)
+            user.password = make_password(new_password)  # Hash new password
+            user.save()
+            messages.success(request, "Password reset successful. You can now log in.")
+            return redirect("accounts.login")
+        except User.DoesNotExist:
+            messages.error(request, "Username not found.")
+            return redirect("password_reset")
+
+    return render(request, "accounts/password_reset_form.html")
+
